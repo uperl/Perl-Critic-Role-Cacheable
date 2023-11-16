@@ -10,6 +10,7 @@ my %modules;
 my $post_diag;
 
 $modules{$_} = $_ for qw(
+  Class::Method::Modifiers
   Cpanel::JSON::XS
   ExtUtils::MakeMaker
   Path::Tiny
