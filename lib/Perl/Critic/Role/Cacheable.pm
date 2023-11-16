@@ -48,33 +48,38 @@ The name of the file to store the cache in.  Defaults to C<~/.perl-critic-role-c
 =cut
 
   around new => sub ($orig, $class, %args) {
-     my $filename = delete $args{'-cacheable-filename'} // File::Glob::bsd_glob('~/.perl-critic-role-cacheable');
-     my $self = $orig->($class, %args);
+    my $filename = delete $args{'-cacheable-filename'} // File::Glob::bsd_glob('~/.perl-critic-role-cacheable');
+    my $self = $orig->($class, %args);
 
-     my %cache;
-     if(-e $filename) {
-       foreach my $line ( Path::Tiny->new($filename)->lines_utf8 ) {
-         chomp $line;
-         my ( $md5, $filename ) = split /\s+/, $line;
-         $cache{$filename} = $md5;
-       }
-     }
+    $self->{_cacheable} = {
 
-     $self->{_cacheable} = {
-       filename => $filename,
-       config_digest => do {
-         my $digest = Digest::MD5->new;
-         $digest->add(Cpanel::JSON::XS->new->canonical->encode(\%args));
-         if($args{'-profile'}) {
-           $digest->add(Path::Tiny->new($args{'-profile'})->slurp_raw);
-         }
-         $digest;
-       },
-       digest_ok => \%cache,
-       digest_disk => {},
-     };
+      filename => $filename,
 
-     return $self;
+      config_digest => do {
+        my $digest = Digest::MD5->new;
+        $digest->add(Cpanel::JSON::XS->new->canonical->encode(\%args));
+        if($args{'-profile'}) {
+          $digest->add(Path::Tiny->new($args{'-profile'})->slurp_raw);
+        }
+        $digest;
+      },
+
+      digest_ok => do {
+        my %cache;
+        if(-e $filename) {
+          foreach my $line ( Path::Tiny->new($filename)->lines_utf8 ) {
+            chomp $line;
+            my ( $md5, $filename ) = split /\s+/, $line;
+            $cache{$filename} = $md5;
+          }
+        }
+        \%cache;
+      },
+
+      digest_disk => {},
+    };
+
+    return $self;
   };
 
 =head1 PROPERTIES
@@ -156,19 +161,18 @@ critiqued and had no violations will not be checked again.
 
   around critique => sub ($orig, $self, $source_code) {
 
-     $DB::single = 1;
-     my $filename = !Ref::Util::is_ref $source_code ? Path::Tiny->new($source_code)->absolute->stringify : undef;
-     if($filename) {
-       return () if $self->_cacheable_check_cache_ok($filename);
-     }
+    my $filename = !Ref::Util::is_ref $source_code ? Path::Tiny->new($source_code)->absolute->stringify : undef;
+    if($filename) {
+      return () if $self->_cacheable_check_cache_ok($filename);
+    }
 
-     my @violations = $orig->($self, $source_code);
+    my @violations = $orig->($self, $source_code);
 
-     if($filename && @violations == 0) {
-       $self->_cacheable_mark_cache_ok($filename);;
-     }
+    if($filename && @violations == 0) {
+      $self->_cacheable_mark_cache_ok($filename);;
+    }
 
-     return @violations;
+    return @violations;
   };
 
 }
