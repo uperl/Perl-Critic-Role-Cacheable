@@ -92,7 +92,7 @@ The name of the file where the cache will be stored.
   }
 
   sub _cacheable_config_digest ($self) {
-    return $self->{_cacheable}->{rc_digest};
+    return $self->{_cacheable}->{config_digest};
   }
 
   sub _cacheable_digest_ok ($self) {
@@ -156,7 +156,8 @@ critiqued and had no violations will not be checked again.
 
   around critique => sub ($orig, $self, $source_code) {
 
-     my $filename = !is_ref $source_code ? Path::Tiny->new($source_code)->absolute->stringify : undef;
+     $DB::single = 1;
+     my $filename = !Ref::Util::is_ref $source_code ? Path::Tiny->new($source_code)->absolute->stringify : undef;
      if($filename) {
        return () if $self->_cacheable_check_cache_ok($filename);
      }
